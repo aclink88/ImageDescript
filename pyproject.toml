@@ -1,0 +1,24 @@
+[project]
+name = "mini-transformer"
+version = "0.1.0"
+description = "A project to become familar with encoder-decoder architecture of a transformer."
+authors = [
+    {name = "AC Link", email = "aclink85@gmail.com"},
+]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "openpyxl",
+    "pandas",
+    "networkx",
+    "torch",
+    "torchvision",
+    "Pillow",
+    "ruff",
+    "mypy",
+    "requests",
+    "tqdm",
+]
+
+[tool.setuptools]
+packages = ["src"]

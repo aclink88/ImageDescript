@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+
+# Environment
+.venv/
+venv/
+env/
+.env
+
+# Build & Dist
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Data
+data/
+*.xlsx
+
+# IDE / Editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
