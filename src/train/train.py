@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms
+import os
 from pathlib import Path
 from tqdm import tqdm
 
@@ -36,9 +37,10 @@ def train():
     # --- Data Loading ---
     print("Loading data...")
     # Define paths
-    base_dir = Path(__file__).parent.parent.parent
+    # Use absolute path from current working directory
+    base_dir = Path(os.getcwd())
     data_dir = base_dir / "data"
-    image_dir = data_dir / "Flicker8k_Dataset" # Note the typo from the zip file
+    image_dir = data_dir / "Flickr8k_Dataset" 
     captions_file = data_dir / "Flickr8k.token.txt"
 
     # Get data loader

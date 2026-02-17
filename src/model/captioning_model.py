@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from .encoder import EncoderCNN
-from .decoder import DecoderRNN
+from src.model.encoder import EncoderCNN
+from src.model.decoder import DecoderRNN
 
 class CaptioningModel(nn.Module):
     """
