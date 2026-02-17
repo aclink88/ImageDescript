@@ -84,15 +84,17 @@ def train():
             captions = captions.to(device)
 
             # Forward pass
-            outputs = model(imgs, captions[:-1]) # Don't feed <EOS> token to decoder
+            # Feed everything except <EOS> to the model
+            outputs = model(imgs, captions[:, :-1]) 
 
             # Reshape for loss calculation
-            # outputs: (seq_len, batch_size, vocab_size)
-            # captions: (seq_len, batch_size)
-            # We want to compare each word in the output sequence to the target sequence
-            # The last token of input captions is <EOS>, so we compare outputs with captions from the 1st token
+            # targets: everything except <SOS>
+            targets = captions[:, 1:]
+            
+            # outputs shape: (batch, seq_len, vocab_size)
+            # targets shape: (batch, seq_len)
             loss = criterion(
-                outputs.reshape(-1, outputs.shape[2]), captions.reshape(-1)
+                outputs.reshape(-1, outputs.shape[2]), targets.reshape(-1)
             )
 
             # Backward and optimize

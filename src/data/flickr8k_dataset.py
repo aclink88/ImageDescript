@@ -111,7 +111,7 @@ class Collate:
         imgs = [item[0].unsqueeze(0) for item in batch]
         imgs = torch.cat(imgs, dim=0)
         targets = [item[1] for item in batch]
-        targets = pad_sequence(targets, batch_first=False, padding_value=self.pad_idx)
+        targets = pad_sequence(targets, batch_first=True, padding_value=self.pad_idx)
 
         return imgs, targets
 
