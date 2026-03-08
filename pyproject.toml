@@ -18,6 +18,12 @@ dependencies = [
     "mypy",
     "requests",
     "tqdm",
+    "matplotlib<3.8.0",
+    "mkl-service",
+    "transformers",
+    "peft",
+    "datasets",
+    "accelerate",
 ]
 
 [tool.setuptools]
