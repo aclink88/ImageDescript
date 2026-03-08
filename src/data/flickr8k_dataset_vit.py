@@ -1,5 +1,6 @@
 import os
 import torch
+import random
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import pandas as pd
@@ -25,8 +26,12 @@ class Flickr8kDatasetViT(Dataset):
                 parts = line.strip().split('\t')
                 if len(parts) == 2:
                     img_id, caption = parts
-                    # Format is 'image_name.jpg#0'
-                    img_names.append(img_id.split('#')[0])
+                    # 1. CLEAN FILENAME: Strip '#0' and trailing artifacts like '.1'
+                    clean_id = img_id.split('#')[0]
+                    if clean_id.endswith('.1') or clean_id.endswith('.2'):
+                        clean_id = clean_id.rsplit('.', 1)[0]
+                    
+                    img_names.append(clean_id)
                     caption_texts.append(caption)
         
         self.df = pd.DataFrame({'image': img_names, 'caption': caption_texts})
@@ -35,26 +40,29 @@ class Flickr8kDatasetViT(Dataset):
         return len(self.df)
 
     def __getitem__(self, index):
-        # 1. Process Image
-        img_id = self.df.iloc[index]['image']
-        img_path = os.path.join(self.root_dir, img_id)
-        image = Image.open(img_path).convert("RGB")
-        
-        # ViT processor handles resizing and normalization
-        pixel_values = self.image_processor(images=image, return_tensors="pt")['pixel_values'].squeeze(0)
+        try:
+            # 1. Process Image
+            img_id = self.df.iloc[index]['image']
+            img_path = os.path.join(self.root_dir, img_id)
+            image = Image.open(img_path).convert("RGB")
+            
+            pixel_values = self.image_processor(images=image, return_tensors="pt")['pixel_values'].squeeze(0)
 
-        # 2. Process Caption
-        caption = self.df.iloc[index]['caption']
-        
-        # Use GPT-2 Tokenizer
-        # We add SOS and EOS tokens (GPT-2 usually uses <|endoftext|> for both)
-        tokenized = self.tokenizer.encode(
-            f"<|endoftext|> {caption} <|endoftext|>", 
-            max_length=self.max_length, 
-            truncation=True
-        )
+            # 2. Process Caption
+            caption = self.df.iloc[index]['caption']
+            tokenized = self.tokenizer.encode(
+                f"<|endoftext|> {caption} <|endoftext|>", 
+                max_length=self.max_length, 
+                truncation=True
+            )
 
-        return pixel_values, torch.tensor(tokenized)
+            return pixel_values, torch.tensor(tokenized)
+            
+        except (FileNotFoundError, IOError) as e:
+            # ROBUSTNESS: If file is missing, don't crash. Try a different random image.
+            print(f"Warning: Could not load image {img_id}. Error: {e}. Trying random replacement...")
+            new_index = random.randint(0, len(self.df) - 1)
+            return self.__getitem__(new_index)
 
 class CollateViT:
     """
