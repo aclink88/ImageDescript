@@ -70,18 +70,15 @@ def train_modern():
             logits = model(imgs, captions)
 
             # --- THE ALIGNMENT MATH ---
-            # We only care about predicting the text part.
-            # GPT-2 is causal, so position 'i' predicts position 'i+1'.
-            # Our sequence is: [Image(197)] + [Text(N)]
-            # We want to use Image + Text[0...N-1] to predict Text[1...N]
+            # Sequence: [Image(197 tokens)] + [Text(N tokens)]
+            # Position 196 (last image patch) predicts Text[0]
+            # Position 196 + N - 1 predicts Text[N-1]
             
-            # Slice the logits to only include the text predictions
-            # The text starts at index 197. 
-            # We take index 196 (the prediction made by the last image patch) through to the end.
+            # Slice logits to get the N predictions for the text
             text_logits = logits[:, 196:-1, :] 
             
-            # The targets are the actual caption words (excluding the first token)
-            targets = captions[:, 1:]
+            # The targets are the full caption (length N)
+            targets = captions
 
             # Calculate Loss
             loss = criterion(
