@@ -43,8 +43,12 @@ def train_modern():
     )
 
     # --- 3. MODEL INITIALIZATION ---
-    print("Initializing ModernCaptioner with ViT and GPT-2 (LoRA)...")
-    model = ModernCaptioner(vocab_size=vocab_size).to(device)
+    print("Initializing ModernCaptioner with Dual-LoRA (Rank 64)...")
+    model = ModernCaptioner(
+        vocab_size=vocab_size, 
+        rank=64, 
+        use_encoder_lora=True
+    ).to(device)
 
     # --- 4. OPTIMIZER ---
     # We only optimize the parameters that require gradients (the LoRA adapters and the Bridge)
