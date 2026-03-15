@@ -24,6 +24,9 @@ dependencies = [
     "peft",
     "datasets",
     "accelerate",
+    "fastapi",
+    "uvicorn",
+    "python-multipart",
 ]
 
 [tool.setuptools]

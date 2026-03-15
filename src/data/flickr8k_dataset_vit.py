@@ -1,6 +1,7 @@
 import os
 import torch
 import random
+import torchvision.transforms as transforms
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import pandas as pd
@@ -11,14 +12,23 @@ class Flickr8kDatasetViT(Dataset):
     """
     A Modern Dataset class for Flickr8k optimized for ViT and GPT-2.
     Uses Hugging Face tokenizers and image processors.
+    Includes optional Data Augmentation for training.
     """
-    def __init__(self, root_dir, captions_file, tokenizer, image_processor, max_length=50):
+    def __init__(self, root_dir, captions_file, tokenizer, image_processor, max_length=50, use_augmentation=False):
         self.root_dir = root_dir
         self.tokenizer = tokenizer
         self.image_processor = image_processor
         self.max_length = max_length
+        self.use_augmentation = use_augmentation
         
-        # Read the captions file (manually to handle the tab delimiter correctly)
+        # Define Data Augmentation pipeline
+        self.augmentation = transforms.Compose([
+            transforms.RandomResizedCrop(224, scale=(0.8, 1.0)), # Random zoom
+            transforms.RandomHorizontalFlip(p=0.5),             # Random mirror
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), # Random lighting
+        ])
+        
+        # Read the captions file
         img_names = []
         caption_texts = []
         with open(captions_file, 'r') as f:
@@ -26,7 +36,7 @@ class Flickr8kDatasetViT(Dataset):
                 parts = line.strip().split('\t')
                 if len(parts) == 2:
                     img_id, caption = parts
-                    # 1. CLEAN FILENAME: Strip '#0' and trailing artifacts like '.1'
+                    # CLEAN FILENAME: Strip '#0' and trailing artifacts like '.1'
                     clean_id = img_id.split('#')[0]
                     if clean_id.endswith('.1') or clean_id.endswith('.2'):
                         clean_id = clean_id.rsplit('.', 1)[0]
@@ -46,6 +56,10 @@ class Flickr8kDatasetViT(Dataset):
             img_path = os.path.join(self.root_dir, img_id)
             image = Image.open(img_path).convert("RGB")
             
+            # Apply Augmentation if in training mode
+            if self.use_augmentation:
+                image = self.augmentation(image)
+            
             pixel_values = self.image_processor(images=image, return_tensors="pt")['pixel_values'].squeeze(0)
 
             # 2. Process Caption
@@ -59,7 +73,7 @@ class Flickr8kDatasetViT(Dataset):
             return pixel_values, torch.tensor(tokenized)
             
         except (FileNotFoundError, IOError) as e:
-            # ROBUSTNESS: If file is missing, don't crash. Try a different random image.
+            # If file is missing, don't crash. Try a different random image.
             print(f"Warning: Could not load image {img_id}. Error: {e}. Trying random replacement...")
             new_index = random.randint(0, len(self.df) - 1)
             return self.__getitem__(new_index)
@@ -76,7 +90,6 @@ class CollateViT:
         # Pad captions to the same length in the batch
         targets = [item[1] for item in batch]
         targets = pad_sequence(targets, batch_first=True, padding_value=self.pad_idx)
-
         return imgs, targets
 
 def get_loader_vit(
@@ -84,7 +97,8 @@ def get_loader_vit(
     annotation_file,
     batch_size=16,
     num_workers=0,
-    shuffle=True
+    shuffle=True,
+    use_augmentation=False
 ):
     """
     Creates a DataLoader for the ViT+GPT model.
@@ -98,7 +112,8 @@ def get_loader_vit(
         root_dir=root_folder,
         captions_file=annotation_file,
         tokenizer=tokenizer,
-        image_processor=image_processor
+        image_processor=image_processor,
+        use_augmentation=use_augmentation
     )
 
     loader = DataLoader(

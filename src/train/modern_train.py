@@ -27,10 +27,10 @@ def train_modern():
     # Training Hyperparameters
     batch_size = 16 
     learning_rate = 5e-5 
-    num_epochs = 5
+    num_epochs = 10 # Increased for augmentation
     
     # --- 2. DATA LOADING ---
-    print("Loading Flickr8k dataset (Modern)...")
+    print("Loading Flickr8k dataset (Modern with Augmentation)...")
     base_dir = Path(os.getcwd())
     image_dir = base_dir / "data" / "Flickr8k_Dataset"
     captions_file = base_dir / "data" / "Flickr8k.token.txt"
@@ -39,7 +39,8 @@ def train_modern():
         root_folder=image_dir,
         annotation_file=captions_file,
         batch_size=batch_size,
-        num_workers=0
+        num_workers=0,
+        use_augmentation=True # ENABLED
     )
 
     # --- 3. MODEL INITIALIZATION ---
