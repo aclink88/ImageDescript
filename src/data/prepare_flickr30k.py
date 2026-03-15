@@ -5,19 +5,19 @@ from pathlib import Path
 from tqdm import tqdm
 
 # --- Configuration ---
-# Using a reliable public mirror for Flickr30k
+# Using verified stable mirrors for Flickr30k
 DATASET_URLS = {
     "images": "https://github.com/jbrownlee/Datasets/releases/download/Flickr30k/flickr30k_images.zip",
-    "text": "https://github.com/jbrownlee/Datasets/releases/download/Flickr30k/flickr30k_text.zip",
+    "text": "https://raw.githubusercontent.com/jbrownlee/Datasets/master/Flickr30k/results.csv", 
 }
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 IMAGES_DIR = DATA_DIR / "flickr30k_images"
-TEXT_DIR = DATA_DIR / "flickr30k_text"
+TEXT_FILE = DATA_DIR / "results.csv" 
 
 def download_file(url: str, destination: Path):
     """Downloads a file with a progress bar."""
-    print(f"Downloading {url}...")
+    print(f"Downloading {url} to {destination}...")
     try:
         with requests.get(url, stream=True) as r:
             r.raise_for_status()
@@ -48,19 +48,22 @@ def main():
     print("--- Starting Flickr30k Preparation ---")
     DATA_DIR.mkdir(exist_ok=True)
 
-    # 1. Download Text
-    if not TEXT_DIR.exists():
-        text_zip = DATA_DIR / "flickr30k_text.zip"
-        download_file(DATASET_URLS["text"], text_zip)
-        extract_zip(text_zip, DATA_DIR)
-        print("Text files ready.")
+    # 1. Download Text (results.csv)
+    if not TEXT_FILE.exists():
+        print("Downloading Flickr30k captions file...")
+        download_file(DATASET_URLS["text"], TEXT_FILE)
+        print("Text file ready.")
+    else:
+        print("Text file already exists.")
 
-    # 2. Download Images (~4GB)
+    # 2. Download Images (~4.1 GB)
     if not IMAGES_DIR.exists():
         img_zip = DATA_DIR / "flickr30k_images.zip"
         download_file(DATASET_URLS["images"], img_zip)
         extract_zip(img_zip, DATA_DIR)
         print("Images ready.")
+    else:
+        print("Images directory already exists.")
 
     print("\n--- Flickr30k Preparation Complete ---")
 
