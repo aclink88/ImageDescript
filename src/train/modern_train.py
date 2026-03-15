@@ -47,8 +47,7 @@ def train_modern():
     print("Initializing ModernCaptioner with Dual-LoRA (Rank 64)...")
     model = ModernCaptioner(
         vocab_size=vocab_size, 
-        rank=64, 
-        use_encoder_lora=True
+        rank=64
     ).to(device)
 
     # --- 4. OPTIMIZER ---
