@@ -6,41 +6,45 @@ from transformers import ViTImageProcessor, GPT2Tokenizer
 from pathlib import Path
 from tqdm import tqdm
 import os
-
-# Import our modern model and existing dataset logic
+# Import our modern model and generic dataset logic
 from src.model.modern_captioner import ModernCaptioner
-from src.data.flickr8k_dataset_vit import get_loader_vit
+from src.data.flickr8k_dataset_vit import get_loader_modern
 
 def train_modern():
     """
-    Training loop for the Modern Multi-modal Captioner (ViT + GPT-2 + LoRA).
+    Optimized training loop for Modern Multi-modal Captioner.
+    Supports Flickr8k and Flickr30k.
     """
     # --- 1. SETTINGS & HYPERPARAMETERS ---
+    dataset_type = 'flickr30k' # Change to 'flickr30k' for larger data
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Training on device: {device}")
+    print(f"Training on device: {device} | Dataset: {dataset_type}")
 
-    # GPT-2 Tokenizer for vocab size and padding
     tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
     vocab_size = len(tokenizer)
 
-    # Training Hyperparameters
-    batch_size = 64 # Increased for H100
+    batch_size = 64 
     learning_rate = 5e-5 
     num_epochs = 10 
-    
-    # --- 2. DATA LOADING ---
-    print("Loading Flickr8k dataset (Modern with Augmentation)...")
-    base_dir = Path(os.getcwd())
-    image_dir = base_dir / "data" / "Flickr8k_Dataset"
-    captions_file = base_dir / "data" / "Flickr8k.token.txt"
 
-    train_loader, dataset = get_loader_vit(
+    # --- 2. DATA LOADING ---
+    base_dir = Path(os.getcwd())
+
+    if dataset_type == 'flickr8k':
+        image_dir = base_dir / "data" / "Flickr8k_Dataset"
+        captions_file = base_dir / "data" / "Flickr8k.token.txt"
+    else:
+        image_dir = base_dir / "data" / "flickr30k_images"
+        captions_file = base_dir / "data" / "results.csv" # Flickr30k's caption file
+
+    train_loader, dataset = get_loader_modern(
         root_folder=image_dir,
         annotation_file=captions_file,
+        dataset_type=dataset_type,
         batch_size=batch_size,
-        num_workers=4,      # Parallel CPU loading
-        use_augmentation=True # ENABLED
+        num_workers=4,
+        use_augmentation=True
     )
 
     # --- 3. MODEL INITIALIZATION ---

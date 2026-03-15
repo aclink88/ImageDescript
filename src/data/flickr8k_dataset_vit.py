@@ -8,43 +8,56 @@ import pandas as pd
 from transformers import GPT2Tokenizer, ViTImageProcessor
 from torch.nn.utils.rnn import pad_sequence
 
-class Flickr8kDatasetViT(Dataset):
+class ImageCaptionDataset(Dataset):
     """
-    A Modern Dataset class for Flickr8k optimized for ViT and GPT-2.
+    Generic Dataset class for Image Captioning datasets (Flickr8k, Flickr30k).
     Uses Hugging Face tokenizers and image processors.
-    Includes optional Data Augmentation for training.
     """
-    def __init__(self, root_dir, captions_file, tokenizer, image_processor, max_length=50, use_augmentation=False):
+    def __init__(self, root_dir, captions_file, tokenizer, image_processor, max_length=50, use_augmentation=False, dataset_type='flickr8k'):
         self.root_dir = root_dir
         self.tokenizer = tokenizer
         self.image_processor = image_processor
         self.max_length = max_length
         self.use_augmentation = use_augmentation
         
-        # Define Data Augmentation pipeline
+        # Data Augmentation pipeline
         self.augmentation = transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=(0.8, 1.0)), # Random zoom
-            transforms.RandomHorizontalFlip(p=0.5),             # Random mirror
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), # Random lighting
+            transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
         ])
         
-        # Read the captions file
+        # Load and parse captions
         img_names = []
         caption_texts = []
-        with open(captions_file, 'r') as f:
-            for line in f:
-                parts = line.strip().split('\t')
-                if len(parts) == 2:
-                    img_id, caption = parts
-                    # CLEAN FILENAME: Strip '#0' and trailing artifacts like '.1'
-                    clean_id = img_id.split('#')[0]
-                    if clean_id.endswith('.1') or clean_id.endswith('.2'):
-                        clean_id = clean_id.rsplit('.', 1)[0]
-                    
-                    img_names.append(clean_id)
-                    caption_texts.append(caption)
+        
+        with open(captions_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            # Skip header if it exists
+            start_idx = 1 if 'image' in lines[0] else 0
+            
+            for line in lines[start_idx:]:
+                if dataset_type == 'flickr8k':
+                    parts = line.strip().split('\t')
+                    if len(parts) == 2:
+                        img_id, caption = parts
+                        # Clean artifacts
+                        clean_id = img_id.split('#')[0]
+                        if clean_id.endswith('.1') or clean_id.endswith('.2'):
+                            clean_id = clean_id.rsplit('.', 1)[0]
+                        img_names.append(clean_id)
+                        caption_texts.append(caption)
+                
+                elif dataset_type == 'flickr30k':
+                    # Flickr30k typically uses CSV format: image_name|comment_number|comment
+                    parts = line.strip().split('|')
+                    if len(parts) == 3:
+                        img_id, _, caption = parts
+                        img_names.append(img_id.strip())
+                        caption_texts.append(caption.strip())
         
         self.df = pd.DataFrame({'image': img_names, 'caption': caption_texts})
+        print(f"Loaded {len(self.df)} image-caption pairs for {dataset_type}.")
 
     def __len__(self):
         return len(self.df)
@@ -72,13 +85,12 @@ class Flickr8kDatasetViT(Dataset):
 
             return pixel_values, torch.tensor(tokenized)
             
-        except (FileNotFoundError, IOError) as e:
-            # If file is missing, don't crash. Try a different random image.
-            print(f"Warning: Could not load image {img_id}. Error: {e}. Trying random replacement...")
+        except Exception as e:
+            # Graceful replacement on load failure
             new_index = random.randint(0, len(self.df) - 1)
             return self.__getitem__(new_index)
 
-class CollateViT:
+class CollateModern:
     """
     Handles batching and padding for the ViT+GPT model.
     """
@@ -92,52 +104,34 @@ class CollateViT:
         targets = pad_sequence(targets, batch_first=True, padding_value=self.pad_idx)
         return imgs, targets
 
-def get_loader_vit(
+def get_loader_modern(
     root_folder,
     annotation_file,
-    batch_size=16,
-    num_workers=0,
-    shuffle=True,
-    use_augmentation=False
+    dataset_type='flickr8k',
+    batch_size=64,
+    num_workers=4,
+    use_augmentation=True
 ):
-    """
-    Creates a DataLoader for the ViT+GPT model.
-    """
     tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
-    
     image_processor = ViTImageProcessor.from_pretrained("google/vit-base-patch16-224-in21k")
     
-    dataset = Flickr8kDatasetViT(
+    dataset = ImageCaptionDataset(
         root_dir=root_folder,
         captions_file=annotation_file,
         tokenizer=tokenizer,
         image_processor=image_processor,
-        use_augmentation=use_augmentation
+        use_augmentation=use_augmentation,
+        dataset_type=dataset_type
     )
 
     loader = DataLoader(
         dataset=dataset,
         batch_size=batch_size,
         num_workers=num_workers,
-        shuffle=shuffle,
-        collate_fn=CollateViT(pad_idx=tokenizer.pad_token_id)
+        shuffle=True,
+        pin_memory=True,
+        collate_fn=CollateModern(pad_idx=tokenizer.pad_token_id)
     )
 
     return loader, dataset
-
-if __name__ == "__main__":
-    # Test the modern loader
-    from pathlib import Path
-    data_dir = Path("data")
-    image_dir = data_dir / "Flickr8k_Dataset"
-    captions_file = data_dir / "Flickr8k.token.txt"
-    
-    if image_dir.exists():
-        loader, dataset = get_loader_vit(image_dir, captions_file)
-        print(f"Dataset Size: {len(dataset)}")
-        imgs, caps = next(iter(loader))
-        print(f"Images batch shape: {imgs.shape}")
-        print(f"Captions batch shape: {caps.shape}")
-    else:
-        print("Data directory not found. Please run the preparation script first.")
