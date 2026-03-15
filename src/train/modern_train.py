@@ -25,9 +25,9 @@ def train_modern():
     vocab_size = len(tokenizer)
 
     # Training Hyperparameters
-    batch_size = 16 
+    batch_size = 64 # Increased for H100
     learning_rate = 5e-5 
-    num_epochs = 10 # Increased for augmentation
+    num_epochs = 10 
     
     # --- 2. DATA LOADING ---
     print("Loading Flickr8k dataset (Modern with Augmentation)...")
@@ -39,7 +39,7 @@ def train_modern():
         root_folder=image_dir,
         annotation_file=captions_file,
         batch_size=batch_size,
-        num_workers=0,
+        num_workers=4,      # Parallel CPU loading
         use_augmentation=True # ENABLED
     )
 
@@ -50,11 +50,14 @@ def train_modern():
         rank=64
     ).to(device)
 
-    # --- 4. OPTIMIZER ---
-    # We only optimize the parameters that require gradients (the LoRA adapters and the Bridge)
+    # --- 4. OPTIMIZER & SCALER ---
+    # Only optimize the parameters that require gradients (the LoRA adapters and the Bridge)
     optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
     criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
-
+    
+    # Initialize AMP GradScaler (though bfloat16 doesn't strictly need it, it's good practice)
+    # Note: bfloat16 is native to H100 and highly efficient
+    
     # --- 5. TRAINING LOOP ---
     model.train()
     for epoch in range(num_epochs):
@@ -69,28 +72,28 @@ def train_modern():
             # with the model's resized embedding layer.
             captions = captions.to(device)
 
-            # Forward Pass
-            # logits shape: (batch, 197 + seq_len, vocab_size)
-            logits = model(imgs, captions)
+            # Use Automatic Mixed Precision (bfloat16)
+            with torch.amp.autocast(device_type='cuda', dtype=torch.bfloat16):
+                # Forward Pass
+                # logits shape: (batch, 197 + seq_len, vocab_size)
+                logits = model(imgs, captions)
 
-            # --- THE ALIGNMENT MATH ---
-            # Sequence: [Image(197 tokens)] + [Text(N tokens)]
-            # Position 196 (last image patch) predicts Text[0]
-            # Position 196 + N - 1 predicts Text[N-1]
+                # Alignment Math
+                # Sequence: [Image(197 tokens)] + [Text(N tokens)]
+                # Position 196 (last image patch) predicts Text[0]
+                # Position 196 + N - 1 predicts Text[N-1]
             
-            # Slice logits to get the N predictions for the text
-            text_logits = logits[:, 196:-1, :] 
-            
-            # The targets are the full caption (length N)
-            targets = captions
+                # Slice logits to get the N predictions for the text
+                text_logits = logits[:, 196:-1, :] 
+                # The targets are the full caption (length N)
+                targets = captions
+                
+                loss = criterion(
+                    text_logits.reshape(-1, vocab_size), 
+                    targets.reshape(-1)
+                )
 
-            # Calculate Loss
-            loss = criterion(
-                text_logits.reshape(-1, vocab_size), 
-                targets.reshape(-1)
-            )
-
-            # Backward Pass
+            # Backward Pass (Standard for bfloat16)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
