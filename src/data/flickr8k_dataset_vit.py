@@ -115,9 +115,12 @@ def get_loader_hf(dataset_name, batch_size=64, num_workers=4, use_augmentation=T
     """
     Creates a DataLoader from a Hugging Face dataset.
     """
-    print(f"Loading '{dataset_name}' split from Hugging Face...")
-    # For nlphuji/flickr30k, most images are in the 'test' split by default
-    raw_dataset = load_dataset(dataset_name, split="test")
+    # Use a modern, script-free version of Flickr30k
+    target_dataset = "HuggingFaceM4/Flickr30k" if dataset_name == "nlphuji/flickr30k" else dataset_name
+    
+    print(f"Loading '{target_dataset}' from Hugging Face...")
+    # 'HuggingFaceM4/Flickr30k' uses 'train' split for the main data
+    raw_dataset = load_dataset(target_dataset, split="train")
     
     tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
