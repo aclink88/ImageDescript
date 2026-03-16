@@ -39,7 +39,8 @@ def train_modern():
     else:
         # Flickr30k (Local Kaggle paths)
         image_dir = base_dir / "data" / "flickr30k_images"
-        captions_file = base_dir / "data" / "results.csv"
+        # Adjusted to match your Colab runtime filename
+        captions_file = base_dir / "data" / "captions.txt" 
 
     print(f"Loading local dataset from: {image_dir}")
     train_loader, dataset = get_loader_modern(
