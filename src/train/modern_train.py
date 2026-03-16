@@ -31,27 +31,25 @@ def train_modern():
     learning_rate = 5e-5 
     
     # --- 2. DATA LOADING ---
+    base_dir = Path(os.getcwd())
+    
     if dataset_type == 'flickr8k':
-        base_dir = Path(os.getcwd())
         image_dir = base_dir / "data" / "Flickr8k_Dataset"
         captions_file = base_dir / "data" / "Flickr8k.token.txt"
-        
-        train_loader, dataset = get_loader_modern(
-            root_folder=image_dir,
-            annotation_file=captions_file,
-            dataset_type='flickr8k',
-            batch_size=batch_size,
-            num_workers=4,
-            use_augmentation=True
-        )
     else:
-        # Use Hugging Face loader for Flickr30k
-        train_loader, dataset = get_loader_hf(
-            dataset_name="nlphuji/flickr30k",
-            batch_size=batch_size,
-            num_workers=4,
-            use_augmentation=True
-        )
+        # Flickr30k (Local Kaggle paths)
+        image_dir = base_dir / "data" / "flickr30k_images"
+        captions_file = base_dir / "data" / "results.csv"
+
+    print(f"Loading local dataset from: {image_dir}")
+    train_loader, dataset = get_loader_modern(
+        root_folder=image_dir,
+        annotation_file=captions_file,
+        dataset_type=dataset_type,
+        batch_size=batch_size,
+        num_workers=4,
+        use_augmentation=True
+    )
 
     # --- 3. MODEL INITIALIZATION ---
     print(f"Initializing ModernCaptioner with Dual-LoRA (Rank 64)...")
