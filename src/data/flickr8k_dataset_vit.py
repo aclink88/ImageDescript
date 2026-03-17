@@ -11,7 +11,8 @@ from datasets import load_dataset
 
 class ImageCaptionDataset(Dataset):
     """
-    Local Dataset class for Image Captioning (Flickr8k).
+    Robust Dataset class for Image Captioning datasets (Flickr8k, Flickr30k).
+    Uses pandas to handle different delimiters and headers.
     """
     def __init__(self, root_dir, captions_file, tokenizer, image_processor, max_length=50, use_augmentation=False, dataset_type='flickr8k'):
         self.root_dir = root_dir
@@ -20,27 +21,37 @@ class ImageCaptionDataset(Dataset):
         self.max_length = max_length
         self.use_augmentation = use_augmentation
         
+        # Data Augmentation pipeline
         self.augmentation = transforms.Compose([
             transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
             transforms.RandomHorizontalFlip(p=0.5),
             transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
         ])
         
-        img_names = []
-        caption_texts = []
+        # Load and parse captions robustly
+        try:
+            # Try auto-detecting delimiter (comma, pipe, tab)
+            df = pd.read_csv(captions_file, sep=None, engine='python')
+        except Exception:
+            # Fallback for old tab-separated files without headers
+            df = pd.read_csv(captions_file, sep='\t', header=None, names=['image', 'caption'])
+
+        # Identify columns dynamically
+        img_col = [c for c in df.columns if 'image' in c.lower() or 'filename' in c.lower()][0]
+        cap_col = [c for c in df.columns if 'caption' in c.lower() or 'comment' in c.lower()][0]
         
-        with open(captions_file, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-            start_idx = 1 if 'image' in lines[0] else 0
-            for line in lines[start_idx:]:
-                parts = line.strip().split('\t')
-                if len(parts) == 2:
-                    img_id, caption = parts
-                    clean_id = img_id.split('#')[0]
-                    img_names.append(clean_id)
-                    caption_texts.append(caption)
+        self.df = df[[img_col, cap_col]].copy()
+        self.df.columns = ['image', 'caption']
         
-        self.df = pd.DataFrame({'image': img_names, 'caption': caption_texts})
+        # Clean image names (strip #0, .1, and ensure .jpg extension)
+        def clean_image_name(x):
+            name = str(x).split('#')[0]
+            if not name.lower().endswith('.jpg'):
+                name = f"{name}.jpg"
+            return name
+
+        self.df['image'] = self.df['image'].apply(clean_image_name)
+        print(f"Loaded {len(self.df)} image-caption pairs from {captions_file}")
 
     def __len__(self):
         return len(self.df)
