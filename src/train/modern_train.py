@@ -49,7 +49,8 @@ def train_modern():
         dataset_type=dataset_type,
         batch_size=batch_size,
         num_workers=4,
-        use_augmentation=True
+        use_augmentation=True,
+        max_length = 80
     )
 
     # --- 3. MODEL INITIALIZATION ---
