@@ -14,7 +14,7 @@ class ImageCaptionDataset(Dataset):
     Robust Dataset class for Image Captioning datasets (Flickr8k, Flickr30k).
     Uses pandas to handle different delimiters and headers.
     """
-    def __init__(self, root_dir, captions_file, tokenizer, image_processor, max_length=50, use_augmentation=False, dataset_type='flickr8k'):
+    def __init__(self, root_dir, captions_file, tokenizer, image_processor, max_length=80, use_augmentation=False, dataset_type='flickr8k'):
         self.root_dir = root_dir
         self.tokenizer = tokenizer
         self.image_processor = image_processor
@@ -153,10 +153,13 @@ def get_loader_hf(dataset_name, batch_size=64, num_workers=4, use_augmentation=T
         collate_fn=CollateModern(pad_idx=tokenizer.pad_token_id)
     ), dataset
 
-def get_loader_modern(root_folder, annotation_file, dataset_type='flickr8k', batch_size=64, num_workers=4, use_augmentation=True):
+def get_loader_modern(root_folder, annotation_file, dataset_type='flickr8k', batch_size=64
+, num_workers=4, use_augmentation=True, max_length=80):
     """Original local loader for Flickr8k."""
     tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
     image_processor = ViTImageProcessor.from_pretrained("google/vit-base-patch16-224-in21k")
-    dataset = ImageCaptionDataset(root_folder, annotation_file, tokenizer, image_processor, use_augmentation=use_augmentation, dataset_type=dataset_type)
+    dataset = ImageCaptionDataset(root_folder, annotation_file, tokenizer
+    , image_processor, use_augmentation=use_augmentation
+    , max_length=max_length, dataset_type=dataset_type)
     return DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=True, pin_memory=True, collate_fn=CollateModern(pad_idx=tokenizer.pad_token_id)), dataset
