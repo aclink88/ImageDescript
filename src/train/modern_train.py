@@ -98,7 +98,29 @@ def train_modern():
             optimizer.step()
 
             epoch_loss += loss.item()
-            wandb.log({"batch_loss": loss.item()})
+            
+            # --- ENHANCED: Periodic Logging ---
+            if batch_idx % 50 == 0:
+                model.eval()
+                with torch.no_grad():
+                    # 1. Get the Ground Truth text
+                    gt_text = tokenizer.decode(captions[0], skip_special_tokens=True).strip()
+                    
+                    # 2. Get the Model's Current Guess
+                    pred_text = model.generate_caption_beam(imgs[0], tokenizer, max_length=30)
+                    
+                # 3. Log to wandb with a detailed caption
+                wandb.log({
+                    "batch_loss": loss.item(),
+                    "train_samples": [wandb.Image(
+                        imgs[0].cpu(), 
+                        caption=f"GT: {gt_text}\nPRED: {pred_text}"
+                    )]
+                })
+                model.train()
+            else:
+                wandb.log({"batch_loss": loss.item()})
+                
             loop.set_postfix(loss=loss.item())
 
         avg_loss = epoch_loss / len(train_loader)
