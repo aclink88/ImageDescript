@@ -64,7 +64,7 @@ class ModernCaptioner(nn.Module):
         
         return outputs.logits
 
-    def generate_caption_beam(self, image, tokenizer, beam_width=5, max_length=60, min_length=5, repetition_penalty=1.2, length_penalty=1.0):
+    def generate_caption_beam(self, image, tokenizer, beam_width=5, max_length=60, min_length=5, repetition_penalty=1.2, length_penalty=0.0):
         """
         Generates a caption using Beam Search with improved robustness against empty outputs.
         """
